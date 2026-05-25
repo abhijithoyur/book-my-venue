@@ -45,6 +45,24 @@ npm run dev
 
 ---
 
+## 📚 Documentation & Technical Specifications
+
+**All 20 user stories now include complete technical specifications:**
+
+- 📋 **[docs/04-USER-STORIES.md](docs/04-USER-STORIES.md)** - All 20 stories with API endpoints, request/response examples, database fields, and frontend components
+- 🔗 **[GITHUB-ISSUES-TO-DOCS.md](GITHUB-ISSUES-TO-DOCS.md)** - Quick mapping of GitHub issues #7-#28 to their technical documentation
+- 🏗️ **[docs/01-ARCHITECTURE.md](docs/01-ARCHITECTURE.md)** - System architecture, modules, and scalability
+- 🗄️ **[docs/02-DATABASE-SCHEMA.md](docs/02-DATABASE-SCHEMA.md)** - Complete database schema with all 12 tables
+- 🔌 **[docs/03-API-SPECIFICATION.md](docs/03-API-SPECIFICATION.md)** - Full REST API reference with 25+ endpoints
+
+**For developers:**
+1. Start with your assigned GitHub issue (#7-#28)
+2. Use [GITHUB-ISSUES-TO-DOCS.md](GITHUB-ISSUES-TO-DOCS.md) to find the matching story ID
+3. Open [docs/04-USER-STORIES.md](docs/04-USER-STORIES.md) and search for that story
+4. You'll find: API specs, JSON examples, database fields, and frontend file paths
+
+---
+
 ## Project Structure
 
 ```
