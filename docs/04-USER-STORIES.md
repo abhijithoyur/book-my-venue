@@ -48,12 +48,40 @@
 - [ ] User type (customer/owner) can be selected during signup
 - [ ] User can login immediately after registration
 
-**Tasks**:
-- Backend: Create User model and serializer
-- Backend: Implement registration endpoint with validation
-- Backend: Setup email verification system
-- Frontend: Create registration form with validation
-- Frontend: Add success/error messaging
+**Technical Details**:
+
+**API Endpoint:** `POST /api/v1/auth/register/` (Auth: None, Rate: 5/hour)
+
+**Request:**
+```json
+{
+  "email": "user@example.com",
+  "password": "SecurePass123!",
+  "first_name": "John",
+  "last_name": "Doe",
+  "user_type": "customer"
+}
+```
+
+**Response (201):**
+```json
+{
+  "id": "uuid",
+  "email": "user@example.com",
+  "first_name": "John",
+  "user_type": "customer",
+  "is_verified": false,
+  "created_at": "2024-05-25T10:30:00Z"
+}
+```
+
+**Errors:** `400` Email exists | `400` Weak password | `429` Rate limited
+
+**Database Fields:** id (UUID), email (unique), password (hashed), first_name, last_name, user_type, is_verified, created_at
+
+**Frontend:** `src/pages/Auth/Register.tsx`, `src/components/PasswordStrengthMeter.tsx`, `src/hooks/useRegister.ts`
+
+**Implementation:** 1) User model 2) Serializer 3) Registration endpoint 4) Email verification 5) Form component 6) Password strength meter
 
 ---
 
@@ -76,12 +104,31 @@
 - [ ] Expired token returns 401 Unauthorized
 - [ ] Token includes user info (id, email, user_type)
 
-**Tasks**:
-- Backend: Implement JWT authentication with djangorestframework-simplejwt
-- Backend: Create login endpoint
-- Backend: Create token refresh endpoint
-- Frontend: Implement login form
-- Frontend: Setup token storage and automatic token refresh
+**Technical Details**:
+
+**API Endpoints:** `POST /api/v1/auth/login/` (Auth: None) | `POST /api/v1/auth/refresh/` (Auth: Required)
+
+**Request:**
+```json
+{"email": "user@example.com", "password": "SecurePass123!"}
+```
+
+**Response (200):**
+```json
+{
+  "access_token": "eyJ...",
+  "refresh_token": "eyJ...",
+  "user": {"id": "uuid", "email": "user@example.com", "user_type": "customer"}
+}
+```
+
+**Errors:** `401` Invalid credentials | `429` Rate limited | `400` Missing fields
+
+**Database Fields:** Token table: token (unique), user_id (FK), is_blacklisted, created_at, expires_at
+
+**Frontend:** `src/pages/Auth/Login.tsx`, `src/hooks/useAuth.ts`, `src/utils/tokenManager.ts`
+
+**Implementation:** 1) JWT setup (djangorestframework-simplejwt) 2) Login endpoint 3) Refresh endpoint 4) Token storage hook 5) Auto-refresh middleware
 
 ---
 
@@ -103,11 +150,27 @@
 - [ ] User cannot change email or user_type
 - [ ] Profile picture is validated (format, size)
 
-**Tasks**:
-- Backend: Create profile retrieval and update endpoints
-- Backend: Implement file upload for profile picture
-- Frontend: Create profile view/edit page
-- Frontend: Add image cropping tool
+**Technical Details**:
+
+**API Endpoints:** `GET /api/v1/profile/` (Auth: Required) | `PATCH /api/v1/profile/` (Auth: Required)
+
+**Request (PATCH):**
+```json
+{"first_name": "John", "last_name": "Doe", "phone": "+1234567890", "bio": "Event planner", "profile_pic": "<file>"}
+```
+
+**Response (200):**
+```json
+{"id": "uuid", "email": "user@example.com", "first_name": "John", "phone": "+1234567890", "bio": "Event planner", "profile_pic_url": "https://...jpg"}
+```
+
+**Errors:** `400` Invalid phone format | `413` Image too large | `401` Unauthorized
+
+**Database Fields:** phone (CharField), bio (TextField), profile_pic (ImageField), updated_at (DateTimeField)
+
+**Frontend:** `src/pages/Profile/ProfilePage.tsx`, `src/components/ProfileForm.tsx`, `src/components/ImageUploader.tsx`
+
+**Implementation:** 1) Profile serializer 2) GET/PATCH endpoints 3) Image upload handler 4) Profile form component 5) Image validation
 
 ---
 
@@ -128,10 +191,21 @@
 - [ ] Expired sessions automatically logout user
 - [ ] User can logout on all devices (optional for MVP)
 
-**Tasks**:
-- Backend: Create logout endpoint (token blacklist)
-- Frontend: Implement logout button
-- Frontend: Clear tokens and redirect to home
+**Technical Details**:
+
+**API Endpoint:** `POST /api/v1/auth/logout/` (Auth: Required)
+
+**Request:** `{"refresh_token": "eyJ..."}`
+
+**Response (200):** `{"detail": "Successfully logged out"}`
+
+**Errors:** `401` Unauthorized | `400` Invalid token
+
+**Database Fields:** TokenBlacklist: token, blacklisted_at, expires_at
+
+**Frontend:** `src/hooks/useLogout.ts`, Logout button in Navigation component
+
+**Implementation:** 1) Logout endpoint with token blacklist 2) Clear localStorage hook 3) Redirect to home 4) Logout button in navbar
 
 ---
 
@@ -154,11 +228,21 @@
 - [ ] Owner profile shows "pending verification" status
 - [ ] Owner can view verification timeline
 
-**Tasks**:
-- Backend: Add venue_owner user type
-- Backend: Create owner verification workflow
-- Frontend: Create owner signup flow
-- Frontend: Show verification status
+**Technical Details**:
+
+**API Endpoint:** `PATCH /api/v1/profile/` with user_type='owner' (Auth: Required)
+
+**Request:** `{"user_type": "owner", "business_name": "ABC Venues", "tax_id": "12345"}`
+
+**Response (200):** `{"id": "uuid", "email": "owner@example.com", "user_type": "owner", "is_verified": false, "verification_status": "pending"}`
+
+**Errors:** `400` Already owner | `403` Not authorized
+
+**Database Fields:** business_name (CharField), tax_id (CharField), verification_status (CharField: pending/approved/rejected), verified_at (DateTimeField)
+
+**Frontend:** `src/pages/Auth/OwnerSignup.tsx`, `src/components/VerificationStatus.tsx`
+
+**Implementation:** 1) Owner type flag 2) User type update endpoint 3) Verification status tracking 4) Owner onboarding flow
 
 ---
 
@@ -181,13 +265,24 @@
 - [ ] Owner receives confirmation and can track verification status
 - [ ] Venue appears in search only AFTER admin approval
 
-**Tasks**:
-- Backend: Create Venue model and serializer
-- Backend: Create venue creation endpoint with image upload
-- Backend: Add amenity and category management
-- Frontend: Create multi-step venue form
-- Frontend: Implement image upload with preview
-- Frontend: Show amenity selector
+**Technical Details**:
+
+**API Endpoint:** `POST /api/v1/venues/` (Auth: Required, Owner only)
+
+**Request:**
+```json
+{"name": "Grand Hall", "description": "Spacious venue", "address": "123 Main St", "city": "NYC", "capacity": 500, "price_per_hour": 250, "category": "banquet", "amenities": ["wifi", "parking", "ac"], "images": [<files>]}
+```
+
+**Response (201):** `{"id": "uuid", "name": "Grand Hall", "status": "pending_verification", "created_at": "2024-05-25T..."}`
+
+**Errors:** `400` Missing fields | `413` Image too large | `401` Not verified owner
+
+**Database Fields:** Venue: name, description, address, city, capacity, price_per_hour, category, status (pending/approved/rejected), created_at. VenueImage: venue_id (FK), image, is_primary. VenueAmenity: many-to-many to Amenity
+
+**Frontend:** `src/pages/Venues/CreateVenue.tsx`, `src/components/VenueForm.tsx`, `src/components/ImageUploader.tsx`, `src/components/AmenitySelector.tsx`
+
+**Implementation:** 1) Venue model 2) Image upload 3) Amenity multi-select 4) Create endpoint 5) Multi-step form
 
 ---
 
@@ -209,12 +304,24 @@
 - [ ] Results sorted by rating, price, or recently added
 - [ ] Search is fast (< 500ms)
 
-**Tasks**:
-- Backend: Create venue list endpoint with filtering
-- Backend: Add search indexing
-- Frontend: Create search page with filters
-- Frontend: Display venue cards in grid
-- Frontend: Implement pagination
+**Technical Details**:
+
+**API Endpoint:** `GET /api/v1/venues/?city=NYC&min_price=100&max_price=500&amenities=wifi,parking&sort=rating` (Auth: None, Paginated)
+
+**Query Params:** city, capacity_min, capacity_max, price_min, price_max, amenities (comma-separated), sort (rating/price/newest), page (default 1), limit (default 20, max 100)
+
+**Response (200):**
+```json
+{"count": 150, "next": "...", "previous": null, "results": [{"id": "uuid", "name": "Hall", "city": "NYC", "capacity": 500, "price": 250, "rating": 4.5, "image_url": "https://..."}]}
+```
+
+**Errors:** `400` Invalid filters | `404` No venues found
+
+**Database Fields:** Indexed: city, capacity, price, status, rating. Full-text search on name, description
+
+**Frontend:** `src/pages/Venues/SearchVenues.tsx`, `src/components/VenueCard.tsx`, `src/components/SearchFilters.tsx`, `src/components/Pagination.tsx`
+
+**Implementation:** 1) List endpoint with filters 2) Database indexes 3) Search form 4) Venue cards 5) Pagination
 
 ---
 
@@ -236,12 +343,22 @@
 - [ ] Customer can see reviews and ratings
 - [ ] Customer can go directly to booking from this page
 
-**Tasks**:
-- Backend: Create venue detail endpoint
-- Backend: Include related data (amenities, reviews, availability)
-- Frontend: Create venue detail page with image gallery
-- Frontend: Display amenities in a readable format
-- Frontend: Show availability calendar
+**Technical Details**:
+
+**API Endpoint:** `GET /api/v1/venues/{id}/` (Auth: None)
+
+**Response (200):**
+```json
+{"id": "uuid", "name": "Grand Hall", "description": "...", "capacity": 500, "price": 250, "rating": 4.5, "images": [{"url": "...", "primary": true}], "amenities": [{"id": "uuid", "name": "WiFi"}], "owner": {"name": "John", "email": "john@...", "phone": "+1234567890"}, "availability": [{"date": "2024-05-26", "status": "available"}], "reviews": [{"rating": 5, "content": "...", "customer": "Jane"}]}
+```
+
+**Errors:** `404` Venue not found
+
+**Database Fields:** Retrieve: Venue, VenueImage, Amenity (M2M), Review, Availability
+
+**Frontend:** `src/pages/Venues/VenueDetail.tsx`, `src/components/ImageGallery.tsx`, `src/components/AvailabilityCalendar.tsx`, `src/components/ReviewList.tsx`, `src/components/BookingButton.tsx`
+
+**Implementation:** 1) Detail endpoint 2) Image gallery 3) Calendar component 4) Reviews list 5) Booking button
 
 ---
 
@@ -263,11 +380,21 @@
 - [ ] Owner can delete venue (soft delete, shows warning)
 - [ ] Only owner can edit their own venues
 
-**Tasks**:
-- Backend: Create venue update endpoint
-- Backend: Implement permission checks
-- Frontend: Create venue edit form (prepopulated)
-- Frontend: Show confirmation before delete
+**Technical Details**:
+
+**API Endpoints:** `PATCH /api/v1/venues/{id}/` (Auth: Owner) | `DELETE /api/v1/venues/{id}/` (Auth: Owner)
+
+**Request (PATCH):** `{"name": "New Name", "price": 300, "amenities": ["wifi", "ac"], "images": [<files>]}`
+
+**Response (200):** `{"id": "uuid", "name": "New Name", "price": 300, "updated_at": "2024-05-25T..."}`
+
+**Errors:** `403` Not venue owner | `404` Venue not found | `400` Cannot edit category
+
+**Database Fields:** Updated_at timestamp, soft_delete (is_active flag)
+
+**Frontend:** `src/pages/Venues/EditVenue.tsx` (reuse VenueForm component with prepopulated data)
+
+**Implementation:** 1) PATCH endpoint with permission check 2) Delete endpoint (soft delete) 3) Edit form component 4) Confirm delete modal
 
 ---
 
@@ -289,12 +416,21 @@
 - [ ] Admin can moderate/delete reviews
 - [ ] Reviews show customer name and booking date
 
-**Tasks**:
-- Backend: Create Review model
-- Backend: Create review endpoint
-- Backend: Update venue rating calculation
-- Frontend: Create review form
-- Frontend: Display reviews on venue page
+**Technical Details**:
+
+**API Endpoints:** `POST /api/v1/bookings/{id}/reviews/` (Auth: Required) | `GET /api/v1/venues/{id}/reviews/` (Auth: None)
+
+**Request:** `{"booking_id": "uuid", "rating": 5, "title": "Amazing", "content": "Great venue!"}`
+
+**Response (201):** `{"id": "uuid", "rating": 5, "title": "Amazing", "content": "Great venue!", "customer": "Jane", "created_at": "2024-05-25T..."}`
+
+**Errors:** `403` Not booking customer | `400` Booking not completed | `404` Booking not found
+
+**Database Fields:** Review: id, booking_id (FK), customer_id (FK), rating (1-5), title, content, created_at. Update Venue.rating (avg)
+
+**Frontend:** `src/components/ReviewForm.tsx`, `src/components/ReviewList.tsx` (in VenueDetail)
+
+**Implementation:** 1) Review model 2) Create endpoint (only after COMPLETED) 3) List endpoint 4) Star rating component 5) Review form
 
 ---
 
@@ -318,13 +454,21 @@
 - [ ] Confirmation message shows booking details
 - [ ] Customer can see booking in their dashboard
 
-**Tasks**:
-- Backend: Create booking creation endpoint
-- Backend: Validate availability before creating booking
-- Backend: Calculate total price
-- Frontend: Create booking form
-- Frontend: Show booking confirmation
-- Frontend: Add to customer dashboard
+**Technical Details**:
+
+**API Endpoint:** `POST /api/v1/bookings/` (Auth: Required, Customer)
+
+**Request:** `{"venue_id": "uuid", "booking_date": "2024-06-15", "num_guests": 100, "notes": "Need parking"}`
+
+**Response (201):** `{"id": "uuid", "venue_id": "uuid", "customer_id": "uuid", "booking_date": "2024-06-15", "num_guests": 100, "total_price": 25000, "status": "pending", "created_at": "2024-05-25T..."}`
+
+**Errors:** `400` Date not available | `400` Guests exceed capacity | `404` Venue not found
+
+**Database Fields:** Booking: id, venue_id (FK), customer_id (FK), booking_date, num_guests, total_price, notes, status (pending/approved/rejected/completed), created_at
+
+**Frontend:** `src/pages/Bookings/CreateBooking.tsx`, `src/components/BookingForm.tsx`, `src/components/BookingConfirmation.tsx`
+
+**Implementation:** 1) Booking model 2) Create endpoint with validation 3) Availability check 4) Price calculation 5) Booking form 6) Confirmation page
 
 ---
 
@@ -346,11 +490,24 @@
 - [ ] Pagination (20 per page)
 - [ ] Can click on booking to see full details
 
-**Tasks**:
-- Backend: Create booking list endpoint with filters
-- Frontend: Create bookings page
-- Frontend: Show booking cards with status badges
-- Frontend: Implement filtering and pagination
+**Technical Details**:
+
+**API Endpoint:** `GET /api/v1/bookings/?status=pending&sort=-booking_date&page=1` (Auth: Required)
+
+**Query Params:** status, sort (default -booking_date), page, limit (default 20)
+
+**Response (200):**
+```json
+{"count": 10, "results": [{"id": "uuid", "venue_name": "Hall", "booking_date": "2024-06-15", "status": "pending", "total_price": 25000, "created_at": "2024-05-25T..."}]}
+```
+
+**Errors:** `401` Unauthorized
+
+**Database Fields:** Query: Booking filtered by customer_id, sorted, paginated
+
+**Frontend:** `src/pages/Bookings/MyBookings.tsx`, `src/components/BookingCard.tsx`, `src/components/BookingFilters.tsx`
+
+**Implementation:** 1) List endpoint with filters 2) Status badges 3) Booking cards 4) Filter buttons 5) Pagination
 
 ---
 
@@ -373,12 +530,23 @@
 - [ ] Approved booking blocks that date on availability
 - [ ] Only venue owner can approve/reject their bookings
 
-**Tasks**:
-- Backend: Create approve/reject endpoints
-- Backend: Update availability when booking approved
-- Backend: Send notifications to customer
-- Frontend: Create owner dashboard with pending bookings
-- Frontend: Add approve/reject buttons and modals
+**Technical Details**:
+
+**API Endpoints:** `PATCH /api/v1/bookings/{id}/approve/` (Auth: Owner) | `PATCH /api/v1/bookings/{id}/reject/` (Auth: Owner)
+
+**Request (Approve):** `{"notes": "Approved"}`
+
+**Request (Reject):** `{"reason": "Venue no longer available"}`
+
+**Response (200):** `{"id": "uuid", "status": "approved", "updated_at": "2024-05-25T..."}`
+
+**Errors:** `403` Not venue owner | `400` Booking not pending | `404` Booking not found
+
+**Database Fields:** BookingStatus: created_at, updated_at, status, notes. Update Availability.status when approved
+
+**Frontend:** `src/pages/OwnerDashboard/PendingBookings.tsx`, `src/components/BookingApprovalModal.tsx`
+
+**Implementation:** 1) Approve/reject endpoints 2) Permission check 3) Send notifications 4) Update availability 5) Owner dashboard 6) Approval modals
 
 ---
 
@@ -400,12 +568,21 @@
 - [ ] Cannot cancel within X days of booking date (configurable)
 - [ ] Cancelled bookings show in history
 
-**Tasks**:
-- Backend: Create cancel endpoint
-- Backend: Release availability
-- Backend: Send notification to owner
-- Frontend: Add cancel button with modal
-- Frontend: Show cancellation history
+**Technical Details**:
+
+**API Endpoint:** `PATCH /api/v1/bookings/{id}/cancel/` (Auth: Required)
+
+**Request:** `{"reason": "Plans changed"}`
+
+**Response (200):** `{"id": "uuid", "status": "cancelled", "updated_at": "2024-05-25T..."}`
+
+**Errors:** `400` Cannot cancel (too close to date) | `403` Not booking customer | `400` Already cancelled
+
+**Database Fields:** BookingCancel: cancelled_at, cancellation_reason. Update Availability if APPROVED
+
+**Frontend:** `src/components/CancelBookingModal.tsx` (in BookingCard)
+
+**Implementation:** 1) Cancel endpoint with date check 2) Reason required 3) Release availability 4) Send notifications 5) Cancel button in booking detail
 
 ---
 
@@ -426,10 +603,19 @@
 - [ ] History of all status changes is visible
 - [ ] Customer can contact owner if needed
 
-**Tasks**:
-- Backend: Create booking history tracking
-- Frontend: Display status timeline
-- Frontend: Show booking history with timestamps
+**Technical Details**:
+
+**API Endpoint:** `GET /api/v1/bookings/{id}/history/` (Auth: Required)
+
+**Response (200):** `{"id": "uuid", "status_history": [{"status": "pending", "changed_at": "2024-05-25T...", "changed_by": "system"}, {"status": "approved", "changed_at": "2024-05-26T...", "changed_by": "owner_name"}]}`
+
+**Errors:** `404` Booking not found | `403` Unauthorized
+
+**Database Fields:** BookingHistory: booking_id (FK), status, changed_at, changed_by_id (FK)
+
+**Frontend:** `src/components/BookingTimeline.tsx`, Status badge component
+
+**Implementation:** 1) BookingHistory model 2) Auto-log status changes 3) History endpoint 4) Timeline component 5) Status badge colors
 
 ---
 
@@ -452,11 +638,21 @@
 - [ ] Availability is created with status = "available"
 - [ ] Owner can delete future availability if needed
 
-**Tasks**:
-- Backend: Create Availability model
-- Backend: Create bulk availability creation endpoint
-- Frontend: Create availability calendar editor
-- Frontend: Allow date range selection
+**Technical Details**:
+
+**API Endpoints:** `POST /api/v1/venues/{id}/availability/` (Auth: Owner) | `DELETE /api/v1/venues/{id}/availability/{date}/` (Auth: Owner)
+
+**Request:** `{"start_date": "2024-06-01", "end_date": "2024-06-30", "recurrence": "daily"}` or `{"dates": ["2024-06-01", "2024-06-02"]}`
+
+**Response (201):** `{"count": 30, "start_date": "2024-06-01", "end_date": "2024-06-30", "status": "available"}`
+
+**Errors:** `400` Invalid date range | `403` Not venue owner
+
+**Database Fields:** Availability: id, venue_id (FK), date, status (available/booked/blocked), created_at, updated_at
+
+**Frontend:** `src/components/AvailabilityBulkEditor.tsx`, `src/components/DateRangeSelector.tsx`
+
+**Implementation:** 1) Availability model 2) Bulk create endpoint 3) Date range picker 4) Calendar editor
 
 ---
 
@@ -477,10 +673,21 @@
 - [ ] Blocked dates override previously available dates
 - [ ] Owner can view all blocked dates
 
-**Tasks**:
-- Backend: Create BlockedDates model
-- Backend: Create block dates endpoint
-- Frontend: Add block dates form to calendar
+**Technical Details**:
+
+**API Endpoints:** `POST /api/v1/venues/{id}/blocked-dates/` (Auth: Owner) | `DELETE /api/v1/venues/{id}/blocked-dates/{id}/` (Auth: Owner)
+
+**Request:** `{"start_date": "2024-06-15", "end_date": "2024-06-17", "reason": "Maintenance"}`
+
+**Response (201):** `{"id": "uuid", "start_date": "2024-06-15", "end_date": "2024-06-17", "reason": "Maintenance", "status": "blocked"}`
+
+**Errors:** `400` Invalid date | `403` Not venue owner
+
+**Database Fields:** BlockedDate: id, venue_id (FK), start_date, end_date, reason, created_at
+
+**Frontend:** `src/components/BlockDateModal.tsx` (in availability calendar)
+
+**Implementation:** 1) BlockedDate model 2) Create/delete endpoints 3) Block date form 4) Update Availability to blocked
 
 ---
 
@@ -501,10 +708,24 @@
 - [ ] Calendar shows next 3 months by default
 - [ ] Can navigate to future months
 
-**Tasks**:
-- Backend: Create availability check endpoint
-- Frontend: Implement interactive calendar
-- Frontend: Show date status with colors
+**Technical Details**:
+
+**API Endpoint:** `GET /api/v1/venues/{id}/availability/?month=2024-06` (Auth: None)
+
+**Query Params:** month (YYYY-MM), year
+
+**Response (200):**
+```json
+{"venue_id": "uuid", "month": "2024-06", "price": 250, "dates": [{"date": "2024-06-01", "status": "available"}, {"date": "2024-06-15", "status": "blocked", "reason": "Maintenance"}]}
+```
+
+**Errors:** `404` Venue not found
+
+**Database Fields:** Query from Availability and BlockedDate tables
+
+**Frontend:** `src/components/AvailabilityCalendar.tsx`, Status badge component
+
+**Implementation:** 1) Availability endpoint 2) Interactive calendar component 3) Color coding (CSS classes) 4) Month navigation 5) Hover tooltip
 
 ---
 
@@ -528,12 +749,21 @@
 - [ ] Admin can reset user passwords (with email confirmation)
 - [ ] Changes are logged in audit trail
 
-**Tasks**:
-- Backend: Create admin user endpoints with filtering
-- Backend: Implement user deactivation/reactivation
-- Backend: Create audit logging
-- Frontend: Create admin user management page
-- Frontend: Show user details and activity
+**Technical Details**:
+
+**API Endpoints:** `GET /api/v1/admin/users/?search=john&user_type=customer&status=active` (Auth: Admin) | `PATCH /api/v1/admin/users/{id}/deactivate/` (Auth: Admin)
+
+**Query Params:** search, user_type, status, page, limit (default 20)
+
+**Response (200):** `{"count": 100, "results": [{"id": "uuid", "email": "user@example.com", "name": "John", "user_type": "customer", "is_active": true, "created_at": "...", "bookings_count": 5}]}`
+
+**Errors:** `403` Not admin | `404` User not found
+
+**Database Fields:** AuditLog: admin_id (FK), action, target_user_id (FK), timestamp. User: is_active
+
+**Frontend:** `src/pages/AdminDashboard/UserManagement.tsx`, `src/components/UserTable.tsx`, `src/components/DeactivateModal.tsx`
+
+**Implementation:** 1) Admin middleware 2) User list endpoint with filters 3) Deactivate endpoint 4) Audit logging 5) Admin users page
 
 ---
 
@@ -556,11 +786,21 @@
 - [ ] Owner is notified of decision
 - [ ] Admin can flag venues for compliance issues
 
-**Tasks**:
-- Backend: Create venue verification endpoints
-- Backend: Send notification to owner
-- Frontend: Create venue moderation dashboard
-- Frontend: Show approve/reject buttons and forms
+**Technical Details**:
+
+**API Endpoints:** `GET /api/v1/admin/venues/pending/` (Auth: Admin) | `PATCH /api/v1/admin/venues/{id}/approve/` (Auth: Admin) | `PATCH /api/v1/admin/venues/{id}/reject/` (Auth: Admin)
+
+**Request:** `{"action": "approve", "notes": "Approved"}` or `{"action": "reject", "reason": "Incomplete info"}`
+
+**Response (200):** `{"id": "uuid", "status": "approved", "updated_at": "2024-05-25T..."}`
+
+**Errors:** `403` Not admin | `400` Invalid status
+
+**Database Fields:** Venue: status (pending/approved/rejected/flagged), admin_notes. Notification sent to owner_id
+
+**Frontend:** `src/pages/AdminDashboard/VenueModeration.tsx`, `src/components/VenueApprovalModal.tsx`, `src/components/VenueCard.tsx`
+
+**Implementation:** 1) Admin venue list endpoint 2) Approve/reject endpoints 3) Send notifications 4) Moderation page 5) Approval modals
 
 ---
 
@@ -581,10 +821,21 @@
 - [ ] Decisions are documented in audit trail
 - [ ] Both parties are notified of decision
 
-**Tasks**:
-- Backend: Create dispute endpoints
-- Backend: Implement decision logging
-- Frontend: Create dispute management dashboard
+**Technical Details**:
+
+**API Endpoints:** `GET /api/v1/admin/disputes/` (Auth: Admin) | `PATCH /api/v1/admin/disputes/{id}/resolve/` (Auth: Admin)
+
+**Request:** `{"decision": "refund", "reason": "Venue not as described", "amount": 25000}`
+
+**Response (200):** `{"id": "uuid", "booking_id": "uuid", "decision": "refund", "resolved_at": "2024-05-25T...", "admin_id": "uuid"}`
+
+**Errors:** `403` Not admin | `404` Dispute not found
+
+**Database Fields:** Dispute: id, booking_id (FK), customer_complaint, owner_response, status (open/resolved), decision, resolved_by (FK), resolution_date
+
+**Frontend:** `src/pages/AdminDashboard/DisputeResolution.tsx`, `src/components/DisputeDetail.tsx`
+
+**Implementation:** 1) Dispute model 2) List endpoint 3) Resolve endpoint 4) Send notifications 5) Disputes page
 
 ---
 
@@ -605,11 +856,22 @@
 - [ ] Export reports to CSV
 - [ ] System health monitoring (API response time, error rates)
 
-**Tasks**:
-- Backend: Create analytics endpoints
-- Backend: Implement metrics collection
-- Frontend: Create analytics dashboard
-- Frontend: Add charting library (Chart.js)
+**Technical Details**:
+
+**API Endpoint:** `GET /api/v1/admin/analytics/?start_date=2024-05-01&end_date=2024-05-31&metric=all` (Auth: Admin) | `GET /api/v1/admin/analytics/export/?format=csv` (Auth: Admin)
+
+**Response (200):**
+```json
+{"total_users": 500, "total_venues": 50, "total_bookings": 150, "total_revenue": 375000, "top_venues": [{"name": "Hall", "bookings": 15, "revenue": 37500}], "growth_7d": {"users": 45, "bookings": 25}}
+```
+
+**Errors:** `403` Not admin
+
+**Database Fields:** Aggregations from User, Venue, Booking tables. Indexes on created_at
+
+**Frontend:** `src/pages/AdminDashboard/Analytics.tsx`, `src/components/KPICard.tsx`, `src/components/Chart.tsx`, `src/components/DateRangeFilter.tsx`
+
+**Implementation:** 1) Analytics endpoints (aggregations) 2) CSV export 3) Dashboard page 4) KPI cards 5) Chart.js integration 6) Date filter
 
 ---
 
